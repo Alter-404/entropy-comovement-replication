@@ -18,7 +18,7 @@ pip-delete-this-directory.txt
 data/cache/*
 data/processed/*
 !data/raw/.gitkeep
-!data/interim/.gitkeep
+!data/cache/.gitkeep
 !data/processed/.gitkeep
 
 # --- Output Artifacts ---
