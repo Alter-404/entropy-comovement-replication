@@ -1,0 +1,42 @@
+# --- Python & Runtime ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# --- Data (CRITICAL: Prevent Data Leakage) ---
+data/cache/*
+data/processed/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# --- Output Artifacts ---
+outputs/models/*
+outputs/figures/*
+outputs/tables/*
+!outputs/models/.gitkeep
+!outputs/figures/.gitkeep
+!outputs/tables/.gitkeep
+
+# --- Configuration & Secrets ---
+.env
+.env.local
+config.py
+secrets.json
+
+# --- IDEs & OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
