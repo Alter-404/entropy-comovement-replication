@@ -14,6 +14,19 @@ pip-delete-this-directory.txt
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
 
+# --- C++ / CMake --- 
+cmake-build-debug/
+cmake-build-release/
+CMakeFiles/
+CMakeCache.txt
+*.cmake
+Makefile
+*.o
+*.obj
+*.dll
+*.dylib
+*.so
+
 # --- Data (CRITICAL: Prevent Data Leakage) ---
 data/raw/*
 data/cache/*
