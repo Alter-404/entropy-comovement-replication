@@ -7,50 +7,111 @@ __pycache__/
 env/
 venv/
 .venv/
+ENV/
 pip-log.txt
 pip-delete-this-directory.txt
+*.egg-info/
+dist/
+build_python/
+.eggs/
 
 # --- Jupyter Notebooks ---
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
 
-# --- C++ / CMake --- 
+# --- C++ / CMake Build Artifacts ---
+build/
 cmake-build-debug/
 cmake-build-release/
 CMakeFiles/
 CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+DartConfiguration.tcl
+Testing/
+_deps/
 *.cmake
+!CMakeLists.txt
 Makefile
 *.o
 *.obj
+*.a
+*.lib
 *.dll
 *.dylib
 *.so
+*.pyd
+*.exe
+entropy_cpp*.so
+entropy_cpp*.pyd
+*.dir/
 
 # --- Data (CRITICAL: Prevent Data Leakage) ---
-data/raw/*
+data/raw/*.csv
+data/raw/*.txt
+data/raw/*.parquet
 data/cache/*
-data/processed/*
+data/processed/*.parquet
+data/processed/*.csv
 !data/raw/.gitkeep
 !data/cache/.gitkeep
 !data/processed/.gitkeep
+!data/raw/README.md
 
 # --- Output Artifacts ---
 outputs/models/*
-outputs/figures/*
-outputs/tables/*
+outputs/figures/*.pdf
+outputs/figures/*.png
+outputs/tables/*.csv
+outputs/tables/*.tex
+outputs/tables/*_formatted.txt
+reports/*.md
+reports/*.html
+reports/*.pdf
 !outputs/models/.gitkeep
 !outputs/figures/.gitkeep
 !outputs/tables/.gitkeep
+!reports/.gitkeep
+
+# --- Temporary & Log Files ---
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.nfs*
 
 # --- Configuration & Secrets ---
 .env
 .env.local
 config.py
 secrets.json
+credentials.json
 
 # --- IDEs & OS ---
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+*.iml
+.project
+.classpath
+.settings/
+
+# --- Documentation Build ---
+docs/_build/
+docs/.doctrees/
+site/
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+.hypothesis/
+
+# --- Keep Files ---
+!QUICKSTART*.md
+!README.md
