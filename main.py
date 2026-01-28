@@ -12,11 +12,92 @@ Usage:
 """
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src" / "python"))
+
+
+def run_extensions(extensions: list, project_root: Path, quiet: bool, demo: bool) -> bool:
+    """
+    Run the specified extensions.
+    
+    Args:
+        extensions: List of extension numbers to run (1, 2, 3)
+        project_root: Path to project root directory
+        quiet: Suppress output
+        demo: Run in demo mode
+        
+    Returns:
+        True if all extensions succeeded, False otherwise
+    """
+    extension_names = {
+        1: "Crisis Analysis",
+        2: "Out-of-Sample 2014-2024", 
+        3: "ML-Based Prediction"
+    }
+    
+    if not quiet:
+        print()
+        print("=" * 70)
+        print("  RUNNING EXTENSIONS")
+        print("=" * 70)
+        print()
+    
+    all_success = True
+    
+    for ext_num in sorted(extensions):
+        script_path = project_root / "scripts" / f"run_extension{ext_num}.py"
+        
+        if not script_path.exists():
+            if not quiet:
+                print(f"  [!] Extension {ext_num} script not found: {script_path}")
+            all_success = False
+            continue
+        
+        if not quiet:
+            print(f"  Running Extension {ext_num}: {extension_names.get(ext_num, 'Unknown')}...")
+            print()
+        
+        try:
+            cmd = [sys.executable, str(script_path)]
+            if demo:
+                cmd.append("--demo")
+            
+            result = subprocess.run(
+                cmd,
+                cwd=str(project_root),
+                capture_output=quiet,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                if not quiet:
+                    print(f"  [✗] Extension {ext_num} failed")
+                    if result.stderr:
+                        print(f"      Error: {result.stderr[:200]}")
+                all_success = False
+            else:
+                if not quiet:
+                    print(f"  [✓] Extension {ext_num} completed successfully")
+                    print()
+        except Exception as e:
+            if not quiet:
+                print(f"  [✗] Extension {ext_num} error: {e}")
+            all_success = False
+    
+    if not quiet:
+        print()
+        print("=" * 70)
+        if all_success:
+            print("  ALL EXTENSIONS COMPLETE")
+        else:
+            print("  SOME EXTENSIONS FAILED")
+        print("=" * 70)
+    
+    return all_success
 
 
 def main():
@@ -29,6 +110,8 @@ Examples:
     python main.py                      # Run full replication
     python main.py --demo               # Quick demo (no data needed)
     python main.py --phase 3            # Run up to phase 3 only
+    python main.py --extensions 1 2 3   # Run replication + all extensions
+    python main.py --extensions-only --extensions 1  # Run only Extension 1
     python main.py --skip-cpp           # Skip C++ compilation
     python main.py --output-dir results # Custom output directory
 
@@ -39,6 +122,11 @@ Phases:
     4. Asymmetry Tests & Portfolio Construction (Tables 2, 5)
     5. Firm Characteristics (Tables 3, 4, 6)
     6. Robustness Checks (Table 7)
+
+Extensions:
+    1. Crisis Analysis (Table 8, Figure 8) - Premium during high-volatility regimes
+    2. Out-of-Sample 2014-2024 (Table 9, Figure 9) - Post-publication test
+    3. ML Prediction (Tables 10, Figures 10-11) - XGBoost asymmetry forecasting
 
 Data Requirements:
     Place the following files in data/raw/:
@@ -102,6 +190,19 @@ Data Requirements:
         action="store_true",
         help="Minimal output"
     )
+    parser.add_argument(
+        "--extensions",
+        nargs="*",
+        type=int,
+        choices=[1, 2, 3],
+        default=None,
+        help="Run extensions after replication (1=Crisis, 2=Out-of-Sample, 3=ML)"
+    )
+    parser.add_argument(
+        "--extensions-only",
+        action="store_true",
+        help="Skip replication and run only the specified extensions"
+    )
     
     args = parser.parse_args()
     
@@ -160,6 +261,15 @@ Data Requirements:
                 print("Skipping C++ compilation")
             print()
     
+    # Handle extensions-only mode
+    if args.extensions_only:
+        extensions_to_run = args.extensions if args.extensions else [1, 2, 3]
+        if not args.quiet:
+            print("Running extensions only (skipping replication)")
+            print()
+        extension_success = run_extensions(extensions_to_run, project_root, args.quiet, args.demo)
+        return 0 if extension_success else 1
+    
     # Run the pipeline - demo_mode already set in constructor
     results = pipeline.run(phases=list(range(1, args.phase + 1)))
     
@@ -182,7 +292,13 @@ Data Requirements:
             print("  Check the error messages above for details.")
         print("=" * 70)
     
-    return 0 if success else 1
+    # Run extensions if requested
+    extension_success = True
+    if args.extensions is not None:
+        extensions_to_run = args.extensions if args.extensions else [1, 2, 3]
+        extension_success = run_extensions(extensions_to_run, project_root, args.quiet, args.demo)
+    
+    return 0 if (success and extension_success) else 1
 
 
 if __name__ == "__main__":

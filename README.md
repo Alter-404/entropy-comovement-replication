@@ -65,6 +65,16 @@ The project demonstrates that stocks exhibiting high downside asymmetry earn a s
 - **Table 6**: Time-Series Regressions (Market Volatility, Liquidity, Sentiment)
 - **Table 7**: Double-Sorted Portfolios (Controlling for Beta, Coskewness, etc.)
 
+#### 3 Extensions (Beyond Original Paper)
+
+This replication includes three novel extensions that go beyond the original Jiang, Wu, Zhou (2018) analysis:
+
+| Extension | Description | Outputs | Key Finding |
+|-----------|-------------|---------|-------------|
+| **Extension 1: Crisis Analysis** | Tests whether the asymmetry premium strengthens during market stress | Table 8, Figure 8 | Premium is **stronger during high-volatility regimes** |
+| **Extension 2: Out-of-Sample (2014-2024)** | Tests if the premium persists post-publication | Table 9, Figure 9 | Premium has **decayed** (-0.15%/month, not significant) |
+| **Extension 3: ML Prediction** | Uses XGBoost to predict future asymmetry ranks | Tables 10, Figures 10-11 | ML strategy **outperforms** (Sharpe 1.16 vs 0.29) |
+
 ---
 
 ## Getting Started
@@ -269,6 +279,46 @@ python main.py --phase 4 --phase 5
 python scripts/replicate_table5.py
 ```
 
+#### Run Extensions
+
+The replication includes three extensions that extend the original analysis:
+
+```bash
+# Run replication + all extensions
+python main.py --extensions 1 2 3
+
+# Run only Extension 1 (Crisis Analysis)
+python main.py --extensions-only --extensions 1
+
+# Run only Extension 2 (Out-of-Sample 2014-2024)
+python main.py --extensions-only --extensions 2
+
+# Run only Extension 3 (ML Prediction)
+python main.py --extensions-only --extensions 3
+
+# Run all extensions without replication
+python main.py --extensions-only --extensions 1 2 3
+
+# Or run individual extension scripts directly
+python scripts/run_extension1.py  # Crisis Analysis
+python scripts/run_extension2.py  # Out-of-Sample
+python scripts/run_extension3.py  # ML Prediction
+```
+
+**Extension Outputs:**
+```
+outputs/
+├── tables/
+│   ├── Table_8_Crisis_Performance.csv      # Extension 1
+│   ├── Table_9_Out_of_Sample.csv           # Extension 2
+│   └── Table_10_ML_Performance.csv         # Extension 3
+└── figures/
+    ├── Figure_8_Crisis_Returns.pdf         # Extension 1
+    ├── Figure_9_Extension_Cumulative.pdf   # Extension 2
+    ├── Figure_10_ML_Cumulative_Returns.pdf # Extension 3
+    └── Figure_11_Feature_Importance.pdf    # Extension 3
+```
+
 ---
 
 ---
@@ -302,6 +352,9 @@ entropy-comovement-replication/
 │
 ├── scripts/                            # Execution Scripts
 │   ├── run_full_replication.py         # Master pipeline orchestrator
+│   ├── run_extension1.py               # Extension 1: Crisis Analysis
+│   ├── run_extension2.py               # Extension 2: Out-of-Sample 2014-2024
+│   ├── run_extension3.py               # Extension 3: ML Prediction
 │   ├── build_cpp.sh                    # C++ compilation automation
 │   ├── replicate_table1.py             # Table 1: Size and Power
 │   ├── replicate_table2.py             # Table 2: Asymmetry Tests
@@ -348,12 +401,19 @@ entropy-comovement-replication/
 │   │   ├── Figure_3_Power_Analysis.pdf
 │   │   ├── Figure_4_Asymmetry_Distribution.pdf
 │   │   ├── Figure_5_Cumulative_Returns.pdf
-│   │   └── Figure_6[A-B]_Premium_*.pdf
+│   │   ├── Figure_6[A-B]_Premium_*.pdf
+│   │   ├── Figure_8_Crisis_Returns.pdf          # Extension 1
+│   │   ├── Figure_9_Extension_Cumulative.pdf    # Extension 2
+│   │   ├── Figure_10_ML_Cumulative_Returns.pdf  # Extension 3
+│   │   └── Figure_11_Feature_Importance.pdf     # Extension 3
 │   │
 │   └── tables/                         # CSV/LaTeX tables
 │       ├── Table_[1-7]_*.csv           # Machine-readable tables
 │       ├── Table_[1-7]_*.tex           # LaTeX formatted tables
-│       └── Table_[1-7]_*_formatted.txt # Human-readable tables
+│       ├── Table_[1-7]_*_formatted.txt # Human-readable tables
+│       ├── Table_8_Crisis_Performance.csv       # Extension 1
+│       ├── Table_9_Out_of_Sample.csv            # Extension 2
+│       └── Table_10_ML_Performance.csv          # Extension 3
 │
 ├── reports/                            # Documentation (gitignored)
 │   ├── replication_report.md           # Complete replication summary
@@ -799,5 +859,5 @@ in the Software without restriction...
 
 ---
 
-**Status**: Last Updated: January 26, 2026
+**Status**: Last Updated: January 28, 2026
 

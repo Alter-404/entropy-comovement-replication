@@ -50,16 +50,18 @@ entropy_cpp*.pyd
 data/raw/*.csv
 data/raw/*.txt
 data/raw/*.parquet
+data/raw/extension/*
 data/cache/*
 data/processed/*.parquet
 data/processed/*.csv
 !data/raw/.gitkeep
+!data/raw/extension/.gitkeep
 !data/cache/.gitkeep
 !data/processed/.gitkeep
 !data/raw/README.md
 
 # --- Output Artifacts ---
-outputs/models/*
+outputs/summary/*
 outputs/figures/*.pdf
 outputs/figures/*.png
 outputs/tables/*.csv
@@ -68,7 +70,7 @@ outputs/tables/*_formatted.txt
 reports/*.md
 reports/*.html
 reports/*.pdf
-!outputs/models/.gitkeep
+!outputs/summary/.gitkeep
 !outputs/figures/.gitkeep
 !outputs/tables/.gitkeep
 !reports/.gitkeep
