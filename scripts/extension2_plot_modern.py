@@ -80,18 +80,35 @@ def load_market_returns(raw_dir: Path, data_dir: Path, demo: bool = False) -> pd
         df = pd.read_csv(ff_path, low_memory=False)
         df.columns = df.columns.str.upper().str.strip()
         
-        if 'DATE' in df.columns:
-            df['DATE'] = pd.to_datetime(df['DATE'].astype(str), format='%Y%m', errors='coerce')
+        # Handle different date column names
+        date_col = None
+        for col in ['DATE', 'DATEFF', 'CALDT']:
+            if col in df.columns:
+                date_col = col
+                break
         
-        mkt_col = 'MKT-RF' if 'MKT-RF' in df.columns else 'MKT_RF'
-        if mkt_col not in df.columns:
-            mkt_col = 'MKTRF'
+        if date_col:
+            # Try different date formats
+            if date_col == 'DATEFF':
+                # Format: YYYY-MM-DD
+                df['DATE'] = pd.to_datetime(df[date_col], errors='coerce')
+            else:
+                # Format: YYYYMM
+                df['DATE'] = pd.to_datetime(df[date_col].astype(str), format='%Y%m', errors='coerce')
         
-        if mkt_col in df.columns:
+        # Handle different market return column names
+        mkt_col = None
+        for col in ['MKT-RF', 'MKT_RF', 'MKTRF']:
+            if col in df.columns:
+                mkt_col = col
+                break
+        
+        if mkt_col and 'DATE' in df.columns:
             # Filter to modern era
             df = df[(df['DATE'] >= '2014-01-01') & (df['DATE'] <= '2024-12-31')]
             
             mkt = df[mkt_col]
+            # Check if returns are in percentage form
             if mkt.abs().max() > 1:
                 mkt = mkt / 100
             
@@ -132,15 +149,21 @@ def create_figure9(portfolio_rets: pd.DataFrame, market_rets: pd.Series,
         portfolio_rets = portfolio_rets.loc[common_dates]
     
     # Calculate cumulative wealth
-    spread_returns = portfolio_rets['HIGH_LOW']
-    spread_wealth = calculate_cumulative_wealth(spread_returns)
+    # Compare actual long portfolios (not long-short spread)
+    high_returns = portfolio_rets['D10']  # High Asymmetry
+    low_returns = portfolio_rets['D1']     # Low Asymmetry
+    
+    high_wealth = calculate_cumulative_wealth(high_returns)
+    low_wealth = calculate_cumulative_wealth(low_returns)
     market_wealth = calculate_cumulative_wealth(market_rets)
     
-    # Plot lines
-    ax.plot(spread_wealth.index, spread_wealth.values, 
-            linewidth=2.5, color='#1f77b4', label='Asymmetry Spread (High-Low)')
+    # Plot lines - comparing long-only strategies
+    ax.plot(high_wealth.index, high_wealth.values, 
+            linewidth=2.5, color='#d62728', label='High Asymmetry (D10)', alpha=0.9)
+    ax.plot(low_wealth.index, low_wealth.values, 
+            linewidth=2.5, color='#2ca02c', label='Low Asymmetry (D1)', alpha=0.9)
     ax.plot(market_wealth.index, market_wealth.values, 
-            linewidth=2.5, color='#ff7f0e', label='Market (Mkt-RF)', alpha=0.8)
+            linewidth=2.5, color='#1f77b4', label='Market (Mkt-RF)', alpha=0.8, linestyle='--')
     
     # Add horizontal line at $1
     ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5, linewidth=1)
@@ -149,7 +172,7 @@ def create_figure9(portfolio_rets: pd.DataFrame, market_rets: pd.Series,
     covid_start = pd.Timestamp('2020-02-01')
     covid_end = pd.Timestamp('2020-03-31')
     
-    if covid_start >= spread_wealth.index.min() and covid_end <= spread_wealth.index.max():
+    if covid_start >= high_wealth.index.min() and covid_end <= high_wealth.index.max():
         ax.axvspan(covid_start, covid_end, alpha=0.2, color='red', 
                    label='Covid Crash (Feb-Mar 2020)')
     
@@ -165,17 +188,19 @@ def create_figure9(portfolio_rets: pd.DataFrame, market_rets: pd.Series,
     plt.xticks(rotation=45)
     
     # Legend
-    ax.legend(loc='upper left', fontsize=11)
+    ax.legend(loc='upper left', fontsize=11, framealpha=0.95)
     
     # Add performance annotations
-    final_spread = spread_wealth.iloc[-1]
+    final_high = high_wealth.iloc[-1]
+    final_low = low_wealth.iloc[-1]
     final_market = market_wealth.iloc[-1]
     
-    spread_cagr = (final_spread ** (12 / len(spread_wealth)) - 1) * 100
-    market_cagr = (final_market ** (12 / len(market_wealth)) - 1) * 100
-    
-    textstr = f'Total Return:\n  Spread: {(final_spread - 1) * 100:.1f}%\n  Market: {(final_market - 1) * 100:.1f}%'
-    props = dict(boxstyle='round', facecolor='white', alpha=0.8)
+    textstr = (f'Total Return:\n'
+               f'  High Asym: {(final_high - 1) * 100:.1f}%\n'
+               f'  Low Asym: {(final_low - 1) * 100:.1f}%\n'
+               f'  Market: {(final_market - 1) * 100:.1f}%\n'
+               f'  Spread (H-L): {((final_high - final_low)) * 100:.1f}%')
+    props = dict(boxstyle='round', facecolor='white', alpha=0.9)
     ax.text(0.98, 0.02, textstr, transform=ax.transAxes, fontsize=10,
             verticalalignment='bottom', horizontalalignment='right', bbox=props)
     
@@ -197,10 +222,10 @@ def create_figure9(portfolio_rets: pd.DataFrame, market_rets: pd.Series,
     print(f"    Saved: {png_path}")
     
     return {
-        'spread_total_return': (final_spread - 1) * 100,
+        'high_total_return': (final_high - 1) * 100,
+        'low_total_return': (final_low - 1) * 100,
         'market_total_return': (final_market - 1) * 100,
-        'spread_cagr': spread_cagr,
-        'market_cagr': market_cagr
+        'spread_return': (final_high - final_low) * 100
     }
 
 
@@ -215,7 +240,8 @@ def analyze_covid_performance(portfolio_rets: pd.DataFrame,
     covid_mask = (portfolio_rets.index >= '2020-02-01') & (portfolio_rets.index <= '2020-03-31')
     
     if covid_mask.sum() > 0:
-        spread_covid = portfolio_rets.loc[covid_mask, 'HIGH_LOW']
+        high_covid = portfolio_rets.loc[covid_mask, 'D10']
+        low_covid = portfolio_rets.loc[covid_mask, 'D1']
         
         # Align market
         if isinstance(market_rets.index[0], pd.Timestamp):
@@ -225,23 +251,29 @@ def analyze_covid_performance(portfolio_rets: pd.DataFrame,
         else:
             market_covid = portfolio_rets.loc[covid_mask, [f'D{i}' for i in range(1, 11)]].mean(axis=1)
         
-        spread_return = (1 + spread_covid).prod() - 1
+        high_return = (1 + high_covid).prod() - 1
+        low_return = (1 + low_covid).prod() - 1
         market_return = (1 + market_covid).prod() - 1
         
         return {
-            'spread_return': spread_return * 100,
+            'high_return': high_return * 100,
+            'low_return': low_return * 100,
             'market_return': market_return * 100,
-            'outperformance': (spread_return - market_return) * 100
+            'spread_return': (high_return - low_return) * 100,
+            'high_vs_market': (high_return - market_return) * 100,
+            'low_vs_market': (low_return - market_return) * 100
         }
     
-    return {'spread_return': 0, 'market_return': 0, 'outperformance': 0}
+    return {'high_return': 0, 'low_return': 0, 'market_return': 0, 
+            'spread_return': 0, 'high_vs_market': 0, 'low_vs_market': 0}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Create modern era equity curve")
     parser.add_argument("--demo", action="store_true", help="Use demo data")
     parser.add_argument("--data-dir", type=str, default="data/processed")
-    parser.add_argument("--raw-dir", type=str, default="data/raw")
+    parser.add_argument("--raw-dir", type=str, default=None,
+                        help="Directory containing raw data files")
     parser.add_argument("--output-dir", type=str, default="outputs/figures")
     args = parser.parse_args()
     
@@ -251,7 +283,19 @@ def main():
     
     project_root = Path(__file__).parent.parent
     data_dir = project_root / args.data_dir
-    raw_dir = project_root / args.raw_dir
+    
+    # Determine raw data directory
+    if args.raw_dir:
+        raw_dir = project_root / args.raw_dir
+    else:
+        # Check for extension subfolder first, then fall back to raw
+        extension_dir = project_root / "data" / "raw" / "extension"
+        if extension_dir.exists() and (extension_dir / "Fama-French Monthly Frequency.csv").exists():
+            raw_dir = extension_dir
+            print(f"\n  Using extension data directory: {raw_dir}")
+        else:
+            raw_dir = project_root / "data" / "raw"
+    
     output_dir = project_root / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -278,9 +322,13 @@ def main():
     covid_perf = analyze_covid_performance(portfolio_rets.copy(), market_rets.copy())
     
     print(f"\n  Feb-Mar 2020 Performance:")
-    print(f"    Asymmetry Spread: {covid_perf['spread_return']:.1f}%")
-    print(f"    Market: {covid_perf['market_return']:.1f}%")
-    print(f"    Outperformance: {covid_perf['outperformance']:.1f}%")
+    print(f"    High Asymmetry (D10): {covid_perf['high_return']:.1f}%")
+    print(f"    Low Asymmetry (D1):   {covid_perf['low_return']:.1f}%")
+    print(f"    Market:               {covid_perf['market_return']:.1f}%")
+    print(f"\n  Relative Performance:")
+    print(f"    Spread (High-Low):    {covid_perf['spread_return']:.1f}%")
+    print(f"    High vs Market:       {covid_perf['high_vs_market']:.1f}%")
+    print(f"    Low vs Market:        {covid_perf['low_vs_market']:.1f}%")
     
     # Summary
     print("\n" + "=" * 70)
@@ -288,13 +336,17 @@ def main():
     print("=" * 70)
     
     print(f"\n  Full Period (2014-2024):")
-    print(f"    Spread Total Return: {performance['spread_total_return']:.1f}%")
-    print(f"    Market Total Return: {performance['market_total_return']:.1f}%")
+    print(f"    High Asymmetry (D10): {performance['high_total_return']:.1f}%")
+    print(f"    Low Asymmetry (D1):   {performance['low_total_return']:.1f}%")
+    print(f"    Market (Mkt-RF):      {performance['market_total_return']:.1f}%")
+    print(f"    Spread (High-Low):    {performance['spread_return']:.1f}%")
     
-    if performance['spread_total_return'] > performance['market_total_return']:
-        print("\n  The Asymmetry Spread OUTPERFORMED the market in the modern era.")
+    if performance['high_total_return'] > performance['low_total_return']:
+        print("\n  ✓ High Asymmetry OUTPERFORMED Low Asymmetry")
+        print(f"    Premium exists in modern era: +{performance['spread_return']:.1f}%")
     else:
-        print("\n  The Asymmetry Spread UNDERPERFORMED the market in the modern era.")
+        print("\n  ✗ High Asymmetry UNDERPERFORMED Low Asymmetry")
+        print(f"    Premium reversed in modern era: {performance['spread_return']:.1f}%")
     
     return 0
 

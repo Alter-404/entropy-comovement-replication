@@ -150,17 +150,22 @@ def create_figure10(portfolio_df: pd.DataFrame, market_rets: pd.Series,
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     plt.xticks(rotation=45)
     
-    ax.legend(loc='upper left', fontsize=11)
+    # Improved legend with better readability
+    legend = ax.legend(loc='upper left', fontsize=12, 
+                      frameon=True, fancybox=True, shadow=True,
+                      framealpha=0.95, edgecolor='gray')
+    legend.get_frame().set_facecolor('white')
+    
     ax.grid(True, alpha=0.3)
     
-    # Add performance annotations
+    # Add performance annotations - move to bottom right to avoid legend overlap
     textstr = (f'Total Return:\n'
                f'  ML: {(ml_wealth.iloc[-1] - 1) * 100:.0f}%\n'
                f'  Std: {(std_wealth.iloc[-1] - 1) * 100:.0f}%\n'
                f'  Mkt: {(mkt_wealth.iloc[-1] - 1) * 100:.0f}%')
-    props = dict(boxstyle='round', facecolor='white', alpha=0.8)
-    ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=10,
-            verticalalignment='top', bbox=props)
+    props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray')
+    ax.text(0.98, 0.02, textstr, transform=ax.transAxes, fontsize=10,
+            verticalalignment='bottom', horizontalalignment='right', bbox=props)
     
     plt.tight_layout()
     

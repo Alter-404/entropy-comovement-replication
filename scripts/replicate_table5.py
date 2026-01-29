@@ -698,10 +698,79 @@ def main():
     print("REPLICATING TABLE 5: RETURNS AND ALPHAS")
     print("="*80)
     
+    base_dir = Path(__file__).parent.parent
+    data_dir = base_dir / 'data' / 'processed'
+    raw_dir = base_dir / 'data' / 'raw'
     OUTPUT_DIR = "outputs/tables"
     
+    # Try to load actual data
+    asy_path = data_dir / 'down_asy_scores.parquet'
+    char_path = data_dir / 'firm_characteristics.parquet'
+    
+    data = None
+    factors = None
+    
+    if asy_path.exists() and char_path.exists():
+        print("\nLoading actual data...")
+        try:
+            down_asy = pd.read_parquet(asy_path)
+            characteristics = pd.read_parquet(char_path)
+            
+            # Merge
+            data = down_asy.merge(characteristics, on=['PERMNO', 'DATE'], how='inner')
+            print(f"  Loaded {len(data)} observations")
+            print(f"  Stocks: {data['PERMNO'].nunique()}")
+            print(f"  Months: {data['DATE'].nunique()}")
+            
+            # Check if return data exists
+            if 'RET' not in data.columns:
+                print("  WARNING: Return data (RET column) not found in processed files.")
+                print("  Table 5 requires monthly returns to compute portfolio performance.")
+                print("  Falling back to demo mode...")
+                data = None
+        except Exception as e:
+            print(f"  Error loading data: {e}")
+            print("  Falling back to demo mode...")
+            data = None
+    else:
+        print("\nProcessed data files not found. Using demo data...")
+    
+    # Try to load Fama-French factors
+    if data is not None:
+        ff_paths = [
+            raw_dir / 'F-F_Research_Data_Factors.csv',
+            raw_dir / 'Fama-French Monthly Frequency.csv',
+        ]
+        
+        for ff_path in ff_paths:
+            if ff_path.exists():
+                print(f"\nLoading Fama-French factors from {ff_path.name}...")
+                try:
+                    factors = pd.read_csv(ff_path, low_memory=False)
+                    factors.columns = factors.columns.str.upper().str.strip()
+                    
+                    # Parse dates
+                    if 'DATE' in factors.columns:
+                        factors['DATE'] = pd.to_datetime(factors['DATE'].astype(str), format='%Y%m', errors='coerce')
+                    
+                    # Ensure required columns exist
+                    required_cols = ['MKT-RF', 'SMB', 'HML', 'RF']
+                    if not all(col in factors.columns or col.replace('-', '_') in factors.columns for col in required_cols):
+                        print(f"  Warning: Missing required factor columns in {ff_path.name}")
+                        factors = None
+                        continue
+                    
+                    print(f"  Loaded {len(factors)} months of factors")
+                    break
+                except Exception as e:
+                    print(f"  Error loading factors: {e}")
+                    factors = None
+    
+    if data is None:
+        print("\nActual data not found. Using demo data...")
+    
     # Generate Table 5
-    panel_a, panel_b = generate_table5()
+    panel_a, panel_b = generate_table5(data=data, factors=factors)
     
     # Save results
     save_table5(panel_a, panel_b, OUTPUT_DIR)

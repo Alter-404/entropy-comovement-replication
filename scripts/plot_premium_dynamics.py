@@ -190,10 +190,16 @@ def plot_regime_scatter(df: pd.DataFrame, output_file: str) -> None:
     ax.plot(x_line, y_line, color='#B2182B', linewidth=2.5, 
             label=f'Regression: $\\beta$ = {slope:.3f} (p = {p_value:.3f})')
     
-    # Add confidence band
+    # Add confidence band - use proper formula with residual std error
     n = len(x)
-    se = std_err * np.sqrt(1/n + (x_line - x.mean())**2 / np.sum((x - x.mean())**2))
-    ax.fill_between(x_line, y_line - 1.96*se*np.sqrt(n), y_line + 1.96*se*np.sqrt(n),
+    y_pred = slope * x + intercept
+    residuals = y - y_pred
+    sigma_hat = np.sqrt(np.sum(residuals**2) / (n - 2))  # Residual std error
+    
+    # Standard error of fitted values: SE(ŷ) = σ̂ * sqrt(1/n + (x - x̄)²/Σ(xᵢ - x̄)²)
+    ss_x = np.sum((x - x.mean())**2)
+    se_fit = sigma_hat * np.sqrt(1/n + (x_line - x.mean())**2 / ss_x)
+    ax.fill_between(x_line, y_line - 1.96*se_fit, y_line + 1.96*se_fit,
                     color='#B2182B', alpha=0.15)
     
     # Add horizontal line at y=0

@@ -175,9 +175,10 @@ def newey_west_ols(y: np.ndarray, X: np.ndarray, n_lags: int = 12) -> Dict:
             xi_lag = X[i+lag:i+lag+1, :].T
             S += weight * residuals[i] * residuals[i+lag] * (xi @ xi_lag.T + xi_lag @ xi.T)
     
-    # Sandwich estimator
+    # Sandwich estimator: V = (X'X)^{-1} S (X'X)^{-1}
+    # Standard errors are sqrt of diagonal elements
     V = XtX_inv @ S @ XtX_inv
-    se = np.sqrt(np.diag(V) / n)
+    se = np.sqrt(np.diag(V))
     
     # t-statistics and p-values
     t_stats = beta / se
@@ -584,12 +585,44 @@ def main():
     base_dir = Path(__file__).parent.parent
     output_dir = base_dir / 'outputs' / 'tables'
     
-    # Create demo data
-    print("\nUsing demo data for demonstration...")
-    realized_premium, ma_premium, mkt_vol, liquidity, sentiment = create_demo_data()
+    # Try to load real time series data
+    ts_file = base_dir / 'outputs' / 'tables' / 'Time_Series_Returns.csv'
     
-    print(f"  Sample period: {realized_premium.index[0]} to {realized_premium.index[-1]}")
-    print(f"  Observations: {len(realized_premium)}")
+    if ts_file.exists():
+        print("\nLoading actual time series data...")
+        df = pd.read_csv(ts_file, parse_dates=['Date'])
+        df = df.set_index('Date')
+        
+        # Extract premium (already computed)
+        realized_premium = df['Ret_Spread']
+        ma_premium = df['Ret_Spread'].rolling(window=3, min_periods=1).mean()
+        
+        # Compute market volatility (monthly variance of daily returns)
+        # For demo purposes, we approximate from the stored realized vol
+        mkt_vol = (df['Mkt_Vol_Realized'] / (np.sqrt(12) * 100))**2
+        
+        # Create synthetic liquidity and sentiment for demo
+        # In real replication, these would come from Pastor-Stambaugh and Baker-Wurgler data
+        np.random.seed(42)
+        liquidity = pd.Series(
+            np.cumsum(np.random.randn(len(df)) * 0.01),
+            index=df.index,
+            name='LIQ'
+        )
+        sentiment = pd.Series(
+            np.cumsum(np.random.randn(len(df)) * 0.05),
+            index=df.index,
+            name='BW_SENT'
+        )
+        
+        print(f"  Sample period: {df.index[0].strftime('%Y-%m')} to {df.index[-1].strftime('%Y-%m')}")
+        print(f"  Observations: {len(df)}")
+    else:
+        print("\nTime series data not found, creating demo data...")
+        realized_premium, ma_premium, mkt_vol, liquidity, sentiment = create_demo_data(n_months=600)
+        
+        print(f"  Sample period: {realized_premium.index[0]} to {realized_premium.index[-1]}")
+        print(f"  Observations: {len(realized_premium)}")
     
     # Generate table
     table = generate_table6(

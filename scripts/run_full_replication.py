@@ -276,9 +276,53 @@ class ReplicationPipeline:
             # Generate Table 5: Portfolio Returns and Alphas
             self._log("Running Carhart 4-factor regressions...")
             from scripts.replicate_table5 import generate_table5, save_table5
+            import pandas as pd
             
-            # Generate Table 5 with 2 panels
-            panel_a, panel_b = generate_table5()
+            # Try to load actual data
+            data = None
+            factors = None
+            
+            if not self.demo_mode:
+                asy_path = self.processed_dir / 'down_asy_scores.parquet'
+                char_path = self.processed_dir / 'firm_characteristics.parquet'
+                
+                if asy_path.exists() and char_path.exists():
+                    self._log("  Loading actual data for Table 5...")
+                    try:
+                        down_asy = pd.read_parquet(asy_path)
+                        characteristics = pd.read_parquet(char_path)
+                        data = down_asy.merge(characteristics, on=['PERMNO', 'DATE'], how='inner')
+                        
+                        # Check if return data exists
+                        if 'RET' not in data.columns:
+                            self._log("  WARNING: Return data not found. Table 5 requires RET column.", "WARN")
+                            self._log("  Falling back to demo mode for Table 5...", "WARN")
+                            data = None
+                        else:
+                            self._log(f"  Loaded {len(data)} observations")
+                    except Exception as e:
+                        self._log(f"  Error loading data: {e}", "WARN")
+                        data = None
+                
+                # Try to load Fama-French factors
+                if data is not None:
+                    ff_paths = [
+                        self.raw_dir / 'F-F_Research_Data_Factors.csv',
+                        self.raw_dir / 'Fama-French Monthly Frequency.csv',
+                    ]
+                    
+                    for ff_path in ff_paths:
+                        if ff_path.exists():
+                            try:
+                                factors = pd.read_csv(ff_path, low_memory=False)
+                                self._log(f"  Loaded Fama-French factors from {ff_path.name}")
+                                break
+                            except Exception as e:
+                                self._log(f"  Error loading factors: {e}", "WARN")
+                                factors = None
+            
+            # Generate Table 5 with actual or demo data
+            panel_a, panel_b = generate_table5(data=data, factors=factors)
             save_table5(panel_a, panel_b, str(self.tables_dir))
             self._log("Table 5 (Returns and Alphas - 2 panels) generated")
             
@@ -370,9 +414,46 @@ class ReplicationPipeline:
             table4 = gen_table4(table4_data, n_deciles=10, 
                                output_path=str(self.tables_dir / 'Table_4_Summary_Stats.csv'))
             
-            # Generate Table 6 using the new format
+            # Generate Table 6 using actual data from Time_Series_Returns.csv
+            self._log("Generating Table 6 (Time-Series Regressions)...")
             from scripts.replicate_table6 import generate_table6, create_demo_data as create_table6_demo
-            realized_premium, ma_premium, mkt_vol, liquidity, sentiment = create_table6_demo()
+            import pandas as pd
+            import numpy as np
+            
+            # Try to load actual time series data
+            ts_file = self.tables_dir / 'Time_Series_Returns.csv'
+            
+            if ts_file.exists() and not self.demo_mode:
+                self._log("  Loading actual time series data for Table 6...")
+                df = pd.read_csv(ts_file, parse_dates=['Date'])
+                df = df.set_index('Date')
+                
+                # Extract premium (already computed)
+                realized_premium = df['Ret_Spread']
+                ma_premium = df['Ret_Spread'].rolling(window=3, min_periods=1).mean()
+                
+                # Compute market volatility (monthly variance)
+                mkt_vol = (df['Mkt_Vol_Realized'] / (np.sqrt(12) * 100))**2
+                
+                # Create synthetic liquidity and sentiment for demo
+                # In real replication, these would come from Pastor-Stambaugh and Baker-Wurgler data
+                np.random.seed(42)
+                liquidity = pd.Series(
+                    np.cumsum(np.random.randn(len(df)) * 0.01),
+                    index=df.index,
+                    name='LIQ'
+                )
+                sentiment = pd.Series(
+                    np.cumsum(np.random.randn(len(df)) * 0.05),
+                    index=df.index,
+                    name='BW_SENT'
+                )
+                
+                self._log(f"  Using full sample: {len(df)} observations")
+            else:
+                self._log("  Generating demo data for Table 6...")
+                realized_premium, ma_premium, mkt_vol, liquidity, sentiment = create_table6_demo()
+            
             table6 = generate_table6(
                 realized_premium=realized_premium,
                 ma_premium=ma_premium,

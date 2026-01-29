@@ -110,27 +110,55 @@ def create_demo_timeseries(n_months: int = 600) -> pd.DataFrame:
     normal_beta = [0.85, 0.90, 1.0, 1.05, 1.10]
     
     # Crash sensitivity (extra beta during downturns) - HIGH ASYMMETRY crashes harder
-    crash_extra_beta = [0.0, 0.2, 0.4, 0.6, 0.9]  # Q1 to Q5
+    # But not so much that it wipes out the long-term premium
+    crash_extra_beta = [0.0, 0.1, 0.2, 0.3, 0.4]  # Q1 to Q5 (reduced from original)
     
     # Mean returns - HIGH ASYMMETRY earns a PREMIUM for bearing crash risk
     # This is the key paper finding: High Asymmetry = High Return (on average)
-    base_means = [0.006, 0.007, 0.008, 0.010, 0.012]  # Q1 to Q5 (monthly)
+    # KEY: Premium is COUNTER-CYCLICAL - high when vol is low, low/negative when vol is high
+    # The spread (Q5 - Q1) should be positive on average (~0.4-0.6% monthly based on Table 5)
+    base_means = [0.004, 0.006, 0.008, 0.010, 0.012]  # Q1 to Q5 (monthly)
+    
+    # For counter-cyclical adjustment, we'll use a rolling realized volatility
+    # computed from the market returns as we simulate
+    rolling_mkt_rets = []
     
     for i in range(n_months):
         # Idiosyncratic shocks
-        idio = np.random.randn(5) * 0.025
+        idio = np.random.randn(5) * 0.02
         
         # Check if market is down significantly (crash period)
         is_crash = mkt_ret[i] < -0.03
         
+        # Counter-cyclical premium adjustment based on recent realized volatility
+        # Use last 12 months of returns to estimate current volatility regime
+        rolling_mkt_rets.append(mkt_ret[i])
+        if len(rolling_mkt_rets) > 12:
+            rolling_mkt_rets.pop(0)
+        
+        if len(rolling_mkt_rets) >= 6:
+            recent_vol = np.std(rolling_mkt_rets) * np.sqrt(12) * 100  # Annualized %
+            vol_median = 15.0  # Approximate median market vol
+            vol_adjustment = -0.001 * (recent_vol - vol_median)
+        else:
+            vol_adjustment = 0.0
+        
         for q in range(5):
+            # Base return always includes mean + market exposure
+            beta = normal_beta[q]
+            mean_ret = base_means[q]
+            
             if is_crash:
                 # During crashes: higher crash beta for high asymmetry stocks
-                total_beta = normal_beta[q] + crash_extra_beta[q]
-                ret = total_beta * mkt_ret[i] + idio[q]
-            else:
-                # Normal times: earn the risk premium
-                ret = base_means[q] + normal_beta[q] * mkt_ret[i] + idio[q]
+                # They still earn their base mean but with amplified market exposure
+                beta = normal_beta[q] + crash_extra_beta[q]
+                # Reduce alpha during crashes (the premium disappears when crashes materialize)
+                mean_ret = base_means[q] * 0.5
+            
+            # Counter-cyclical adjustment (stronger for high asymmetry)
+            premium_adjustment = vol_adjustment * (q / 4.0)
+            
+            ret = mean_ret + premium_adjustment + beta * mkt_ret[i] + idio[q]
             
             if q == 0:
                 q1_ret[i] = ret
@@ -158,9 +186,12 @@ def create_demo_timeseries(n_months: int = 600) -> pd.DataFrame:
         'Ret_High_Asy': q5_ret,     # Decile 10/5 (High Asymmetry)
         'Ret_Spread': spread,        # High - Low
         'Mkt_Ret': mkt_ret,
-        'Mkt_Vol': mkt_vol,          # Monthly variance
-        'Mkt_Vol_Realized': np.sqrt(mkt_vol) * np.sqrt(12) * 100  # Annualized vol %
+        'Mkt_Vol': mkt_vol,          # Monthly variance (input for simulation)
     })
+    
+    # Compute REALIZED volatility from actual returns (rolling 12-month window)
+    # This is what Table 6 uses - historical realized volatility, not ex-ante
+    df['Mkt_Vol_Realized'] = df['Mkt_Ret'].rolling(window=12, min_periods=6).std() * np.sqrt(12) * 100
     
     return df
 
