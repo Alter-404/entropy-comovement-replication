@@ -164,13 +164,10 @@ def run_regressions(portfolio_rets: pd.DataFrame,
     
     results = {}
     
-    # Excess return (subtract RF)
-    if 'RF' in merged.columns:
-        merged['HIGH_LOW_EX'] = merged['HIGH_LOW'] - merged['RF']
-    else:
-        merged['HIGH_LOW_EX'] = merged['HIGH_LOW']
-    
-    y = merged['HIGH_LOW_EX'].values
+    # NOTE: HIGH_LOW is already a long-short spread (D10 - D1), which is a self-financing
+    # portfolio. It does NOT need RF subtracted - it's already an excess return by construction.
+    # Subtracting RF would double-count and give incorrect (too negative) results.
+    y = merged['HIGH_LOW'].values
     
     # 1. Raw return
     results['raw_return'] = {
